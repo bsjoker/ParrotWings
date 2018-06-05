@@ -1,100 +1,113 @@
 package ru.bakaystas.parrotwings;
 
 import android.app.SearchManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.SearchView;
-import android.text.TextUtils;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
+import android.view.View;;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Filter;
-import android.widget.Filterable;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.InvalidClassException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.prefs.InvalidPreferencesFormatException;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import ru.bakaystas.parrotwings.model.LoggedUserInfo;
+import javax.inject.Inject;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import ru.bakaystas.parrotwings.common.MyItemClickListener;
+import ru.bakaystas.parrotwings.common.SearchRecipientAdapter;
+import ru.bakaystas.parrotwings.di.component.MainComponent;
+import ru.bakaystas.parrotwings.di.module.MainModule;
 import ru.bakaystas.parrotwings.model.RecipientSearch;
-import ru.bakaystas.parrotwings.model.ResponseTransaction;
-import ru.bakaystas.parrotwings.rest.api.APIService;
-import ru.bakaystas.parrotwings.rest.api.ApiUtils;
+import ru.bakaystas.parrotwings.mvp.contract.MainContract;
+import ru.bakaystas.parrotwings.mvp.presenter.MainPresenter;
+import ru.bakaystas.parrotwings.utils.Preferences;
 
-public class MainActivity extends AppCompatActivity {
+import static java.lang.Math.abs;
 
+public class MainActivity extends AppCompatActivity implements MainContract.View {
     private static final String LOG_TAG = "MainActivity";
-    public static final String TOKEN = null;
-    private APIService mApiService;
-    private EditText amount;
-    private TextView tvRecipient, user, balance;
-    private Button info, transfer, search;
-    private String token, recipient;
-    private RecyclerView recyclerView;
 
+    private String recipient;
     private List<RecipientSearch> mRecipients;
-    private SharedPreferences Prefs;
-    private SearchRecipientAdapter mSearchRecipientAdapter;
+    public SearchRecipientAdapter mSearchRecipientAdapter;
+    private boolean valid;
+    MainComponent mainComponent;
+
+    @BindView(R.id.edit_text_amount)
+    EditText amount;
+
+    @BindView(R.id.text_view_amount)
+    TextView balance;
+
+    @BindView(R.id.text_view_recipient)
+    TextView tvRecipient;
+
+    @BindView(R.id.text_view_username)
+    TextView user;
+
+    @BindView(R.id.buttonTransfer)
+    Button transfer;
+
+    @BindView(R.id.search_recycler_view)
+    RecyclerView recyclerView;
+
+    @Inject
+    MainPresenter mainPresenter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mApiService = ApiUtils.getAPIService();
-
+        plusMainComponent();
+        initView();
         setupSearchView();
 
-        Prefs = getSharedPreferences(TOKEN, Context.MODE_PRIVATE);
-        token = Prefs.getString("token", "0");
-        SharedPreferences.Editor ed = Prefs.edit();
-        ed.putInt("amount", 0);
-        ed.putString("name", "name");
-        ed.apply();
+        mainPresenter.userInfo();
 
-        Log.d(LOG_TAG, token);
-
-        amount = (EditText)findViewById(R.id.edit_text_amount);
-
-        balance = (TextView)findViewById(R.id.text_view_amount);
-        tvRecipient = (TextView)findViewById(R.id.text_view_recipient);
-        user = (TextView)findViewById(R.id.text_view_username);
-
-        transfer = (Button)findViewById(R.id.buttonTransfer);
-
-        user.setText(Prefs.getString("email", "---"));
-
-        recyclerView = (RecyclerView) findViewById(R.id.search_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
 
         mRecipients = new ArrayList<>();
-        mSearchRecipientAdapter = new SearchRecipientAdapter(mRecipients);
+        mSearchRecipientAdapter = new SearchRecipientAdapter(mRecipients, new MyItemClickListener() {
+            @Override
+            public void onItemClick(View v, int position) {
+                setRecipient(mRecipients.get(position));
+                setResult(RESULT_OK);
+                tvRecipient.setText("Получатель: " + mRecipients.get(position).getName());
+            }
+        });
         recyclerView.setAdapter(mSearchRecipientAdapter);
 
         transfer.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Integer amountField = Integer.valueOf(amount.getText().toString().trim());
-                Log.d(LOG_TAG, "Recipient: " + recipient + ". Amount: " + amountField.toString());
-                transfer(recipient, amountField);
+                mainPresenter.validateForm();
+                if (valid) {
+                    mainPresenter.transfer(recipient, Integer.valueOf(amount.getText().toString().trim()));
+                }
             }
         });
+    }
+
+    private void initView() {
+        ButterKnife.bind(this);
+    }
+
+    public void plusMainComponent() {
+        if (mainComponent == null) {
+            MyApplication.get(this).getsApplicationComponent().plusMainComponent(new MainModule(this)).inject(this);
+        }
     }
 
     @Override
@@ -127,201 +140,79 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onQueryTextSubmit(String query) {
                 mSearchRecipientAdapter.getFilter().filter(query);
+                Log.d(LOG_TAG, "TextSubmint");
                 return true;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
                 mSearchRecipientAdapter.getFilter().filter(newText);
-                recyclerView.setVisibility(View.VISIBLE);
+                mainPresenter.searchRecipient(newText);
+                Log.d(LOG_TAG, "TextChange");
                 return true;
             }
         });
     }
 
-    private void transfer(String usernameField, Integer amount) {
-        mApiService.transfer(token, usernameField, amount).enqueue(new Callback<ResponseTransaction>() {
-            @Override
-            public void onResponse(Call<ResponseTransaction> call, Response<ResponseTransaction> response) {
-                if (response.isSuccessful()){
-                    showMsg("Перевод " + response.body().getTrans_token().getAmount() + "PW пользователю " + response.body().getTrans_token().getUsername() + " успешно совершен!");
-                    Log.d(LOG_TAG, "Transfer: " + response.body().getTrans_token().getBalance());
-                    balance.setText("На Вашем счету: " + response.body().getTrans_token().getBalance());
-                }else {
-                    switch (response.code()){
-                        case 400:
-                            showMsg("Недостаточно средств для перевода!");
-                            break;
-                        case 401:
-                            showMsg("Пользователь неавторизован!");
-                    }
-                    Log.d(LOG_TAG, "Error transfer: " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ResponseTransaction> call, Throwable t) {
-                Log.d(LOG_TAG, "Transfer message error" + t.getMessage());
-            }
-        });
+    @Override
+    public void setUserInfo(String mUser, String newBalance) {
+        if (mUser == null) {
+            balance.setText(newBalance);
+        } else {
+            balance.setText(newBalance);
+            user.setText(mUser);
+        }
     }
 
-    private void showMsg(String msg){
+    @Override
+    public void showMsg(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
 
-    private void getUserInfo() {
-        mApiService.getLoggedUserInfo(token).enqueue(new Callback<LoggedUserInfo>() {
-            @Override
-            public void onResponse(Call<LoggedUserInfo> call, Response<LoggedUserInfo> response) {
-                Log.d(LOG_TAG, "Logged user info: " + response.body().getEmail());
-                if (response.isSuccessful()){
-                    Log.d(LOG_TAG, "Logged user info: " + response.body().getEmail());
-                    balance.setText("На Вашем счету: " + response.body().getBalance());
-                    user.setText(response.body().getName());
-                }else {
-                    Log.d(LOG_TAG, "Error getLoggedUserInfo: " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<LoggedUserInfo> call, Throwable t) {
-                Log.e(LOG_TAG, "Error: " + t.getMessage());
-            }
-        });
-    }
-
-    private void hideRV(){
-        recyclerView.setVisibility(View.INVISIBLE);
-    }
-
-    private class SearchRecipientHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
-
-        private RecipientSearch mRecipient;
-        private TextView mId;
-        private TextView mName;
-
-        SearchRecipientHolder(View itemView) {
-            super(itemView);
-            itemView.setOnClickListener(this);
-            mId = (TextView) itemView.findViewById(R.id.recipient_id);
-            mName = (TextView) itemView.findViewById(R.id.recipient_name);
-        }
-
-        void bindRecipient(RecipientSearch recipient) {
-            mRecipient = recipient;
-            mId.setText(String.valueOf(recipient.getId()));
-            mName.setText(recipient.getName());
-        }
-
-        @Override
-        public void onClick(View v) {
-            setRecipient(mRecipient);
-            setResult(RESULT_OK);
-            hideRV();
-            tvRecipient.setText("Получатель: " + mRecipient.getName());
-        }
+    @Override
+    public void updateAdapter(List<RecipientSearch> list) {
+        mRecipients.clear();
+        mRecipients.addAll(list);
+        mSearchRecipientAdapter.notifyDataSetChanged();
     }
 
     private void setRecipient(RecipientSearch mRecipient) {
         recipient = mRecipient.getName();
     }
 
-    private class SearchRecipientAdapter extends RecyclerView.Adapter<SearchRecipientHolder> implements
-            Filterable {
+    public String getRecipient() {
+        return recipient;
+    }
 
-        private List<RecipientSearch> mRecipients;
+    public void setValid(boolean valid) {
+        this.valid = valid;
+    }
 
-        SearchRecipientAdapter(List<RecipientSearch> recipients) {
-            mRecipients = recipients;
-        }
+    public EditText getAmount() {
+        return amount;
+    }
 
-        @Override
-        public int getItemCount() {
-            if (mRecipients != null)
-                return mRecipients.size();
-
-            return 0;
-        }
-
-        @Override
-        public void onBindViewHolder(SearchRecipientHolder holder, int position) {
-            RecipientSearch recipient = mRecipients.get(position);
-            holder.bindRecipient(recipient);
-        }
-
-        @Override
-        public SearchRecipientHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
-            View v = inflater.inflate(R.layout.recipient_item, parent, false);
-
-            return new SearchRecipientHolder(v);
-        }
-
-        @Override
-        public Filter getFilter() {
-
-            return new Filter() {
-                @Override
-                protected FilterResults performFiltering(CharSequence charSequence) {
-                    FilterResults filterResults = new FilterResults();
-
-                    //List<RecipientSearch> recipientSearchList = searchRecipient(charSequence.toString());
-
-                    //----------------------------- Заполняю массив вымышленными элементами, т.к. нет связи с сервером
-                    List<RecipientSearch> rs = new ArrayList<>();
-                    for (int i = 1; i<=4; i++){
-                        RecipientSearch mRecipientSearch = new RecipientSearch();
-                        mRecipientSearch.setId(i);
-                        mRecipientSearch.setName("Ivan " + i);
-                        rs.add(mRecipientSearch);
-                    }
-                    List<RecipientSearch> recipientSearchList = rs;
-                    //-----------------------------
-
-                    filterResults.values = recipientSearchList;
-                    filterResults.count = recipientSearchList != null ? recipientSearchList.size() : 0;
-
-                    return filterResults;
-                }
-
-                @Override
-                protected void publishResults(CharSequence charSequence,
-                                              FilterResults filterResults) {
-                    mRecipients.clear();
-                    if (filterResults.values != null) {
-                        mRecipients.addAll((ArrayList<RecipientSearch>) filterResults.values);
-                    }
-                    notifyDataSetChanged();
-                }
-            };
-        }
-
-        private List<RecipientSearch> searchRecipient(String filter){
-
-            mApiService.searchRecipient(token, filter).enqueue(new Callback<List<RecipientSearch>>() {
-                @Override
-                public void onResponse(Call<List<RecipientSearch>> call, Response<List<RecipientSearch>> response) {
-                    mRecipients = response.body();
-                }
-
-                @Override
-                public void onFailure(Call<List<RecipientSearch>> call, Throwable t) {
-
-                }
-            });
-            return mRecipients;
-        }
+    public TextView getTvRecipient() {
+        return tvRecipient;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Integer am = Prefs.getInt("amount", 0);
-        String nm = Prefs.getString("name", "name");
-        if (am>0 && !nm.contains("name")) {
-            amount.setText(am);
+        amount.setText(null);
+        Integer am = Preferences.getSharedPreferences().getInt("amount", 0);
+        String nm = Preferences.getSharedPreferences().getString("name", "name");
+        if (am != 0 && !nm.contains("name")) {
+            am = abs(am);
+            amount.setText(am.toString());
             recipient = nm;
+            tvRecipient.setText("Получатель: " + recipient);
+            try {
+                Preferences.savePreference("amount", 0);
+                Preferences.savePreference("name", "name");
+            } catch (InvalidClassException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

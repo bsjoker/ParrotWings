@@ -7,21 +7,11 @@
     android:padding="8dp">
 
     <TextView
-        android:id="@+id/recipient_id"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        tools:text="1"
-        android:fontFamily="sans-serif"
-        android:textSize="16sp"
-        android:textColor="?android:attr/textColorPrimary"
-        android:textAppearance="?android:attr/textAppearanceListItem"/>
-
-    <TextView
         android:id="@+id/recipient_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif"
-        android:textSize="14sp"
-        android:textAppearance="?android:attr/textAppearanceListItemSmall"
+        android:textSize="16sp"
+        android:textAppearance="?android:attr/textAppearanceListItem"
         tools:text="Ivan"/>
 </LinearLayout>

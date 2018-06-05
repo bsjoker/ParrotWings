@@ -13,94 +13,82 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import javax.inject.Inject;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import ru.bakaystas.parrotwings.di.component.RegisterComponent;
+import ru.bakaystas.parrotwings.di.module.RegisterModule;
 import ru.bakaystas.parrotwings.model.Reterns;
 import ru.bakaystas.parrotwings.model.User;
-import ru.bakaystas.parrotwings.model.UserLogin;
+import ru.bakaystas.parrotwings.mvp.contract.RegisterContract;
+import ru.bakaystas.parrotwings.mvp.presenter.RegisterPresenter;
 import ru.bakaystas.parrotwings.rest.api.APIService;
-import ru.bakaystas.parrotwings.rest.api.ApiUtils;
 
 /**
  * Created by 1 on 15.04.2018.
  */
 
-public class RegisterActivity extends AppCompatActivity {
+public class RegisterActivity extends AppCompatActivity implements RegisterContract.View{
     private static final String LOG_TAG = "RegisterActivity";
-    public static final String TOKEN = null;
-    private APIService mApiService;
-    private EditText username, email, password, repeatPassword;
-    private TextView user, amount;
-    private Button registerNewUser;
-    private String token;
 
-    SharedPreferences Prefs;
+    @BindView(R.id.edit_text_username)
+    EditText username;
+
+    @BindView(R.id.edit_text_email)
+    EditText email;
+
+    @BindView(R.id.edit_text_password)
+    EditText password;
+
+    @BindView(R.id.edit_text_repeat_password)
+    EditText repeatPassword;
+
+    @BindView(R.id.buttonRegisterNew)
+    Button registerNewUser;
+
+    RegisterComponent registerComponent;
+
+    @Inject
+    RegisterPresenter registerPresenter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
 
-        mApiService = ApiUtils.getAPIService();
-
-        username = (EditText)findViewById(R.id.edit_text_username);
-        email = (EditText)findViewById(R.id.edit_text_email);
-        password = (EditText) findViewById(R.id.edit_text_password);
-        repeatPassword = (EditText) findViewById(R.id.edit_text_repeat_password);
-
-        user = (TextView)findViewById(R.id.text_view_username);
-        amount = (TextView)findViewById(R.id.text_view_amount);
-
-        registerNewUser = (Button)findViewById(R.id.buttonRegisterNew);
+        initView();
+        plusRegisterComponent();
 
         registerNewUser.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String usernameField = username.getText().toString().trim();
-                String emailField = email.getText().toString().trim();
-                String passwordField = password.getText().toString().trim();
-                String repeatPasswordField = repeatPassword.getText().toString().trim();
-                if(!TextUtils.isEmpty(usernameField) && !TextUtils.isEmpty(emailField) && !TextUtils.isEmpty(passwordField) && repeatPasswordField.contains(passwordField)){
-                    User user = new User();
-                    user.setUsername(usernameField);
-                    user.setEmail(emailField);
-                    user.setPassword(passwordField);
-                    tryRegisterUser(user);
-                }else {
-                    showMsg("Не все поля заполнены или не совпадают пароли!");
-                }
+                registerPresenter.registerNewUser(username.getText().toString().trim(),
+                        email.getText().toString().trim(), password.getText().toString().trim(),
+                        repeatPassword.getText().toString().trim());
             }
         });
     }
 
-    private void tryRegisterUser(User user) {
-        mApiService.createUser(user).enqueue(new Callback<Reterns>() {
-            @Override
-            public void onResponse(Call<Reterns> call, Response<Reterns> response) {
-                if (response.isSuccessful()){
-                    showMsg("User created!");
-                    Log.d(LOG_TAG, "User created! " + response.body().getId_token());
-                    token = response.body().getId_token();
-                    Prefs = getSharedPreferences(TOKEN, Context.MODE_PRIVATE);
-                    SharedPreferences.Editor editor = Prefs.edit();
-                    editor.putString("token", token);
-                    editor.apply();
-                    Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-                    startActivity(intent);
-                }else {
-                    showMsg("Error register: " + response.code());
-                    Log.d(LOG_TAG, "Error register: " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Reterns> call, Throwable t) {
-                Log.e(LOG_TAG, "Error: " + t.getMessage());
-            }
-        });
+    private void initView() {
+        ButterKnife.bind(this);
     }
-    private void showMsg(String msg){
+
+    private void plusRegisterComponent() {
+        if(registerComponent==null){
+            MyApplication.get(this).getsApplicationComponent().plusRegisterComponent(new RegisterModule(this)).inject(this);
+        }
+    }
+
+    public void startMainActivity(){
+        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+        startActivity(intent);
+    }
+
+    public void showMsg(String msg){
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
 }

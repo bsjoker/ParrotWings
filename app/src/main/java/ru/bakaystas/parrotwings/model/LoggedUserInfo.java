@@ -10,7 +10,7 @@ import com.google.gson.annotations.SerializedName;
 public class LoggedUserInfo {
     @SerializedName("id")
     @Expose
-    private String id;
+    private Integer id;
 
     @SerializedName("name")
     @Expose
@@ -24,19 +24,19 @@ public class LoggedUserInfo {
     @Expose
     private Integer balance;
 
-    public String getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
-    public String getName() {
+    public String getUsername() {
         return name;
     }
 
-    public void setName(String name) {
+    public void setUsername(String name) {
         this.name = name;
     }
 

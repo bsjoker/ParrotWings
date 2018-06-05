@@ -16,6 +16,7 @@ public class RecipientSearch {
     @Expose
     private String name;
 
+
     public Integer getId() {
         return id;
     }

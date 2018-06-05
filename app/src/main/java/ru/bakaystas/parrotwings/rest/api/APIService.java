@@ -2,6 +2,8 @@ package ru.bakaystas.parrotwings.rest.api;
 
 import java.util.List;
 
+import io.reactivex.Observable;
+import io.reactivex.Single;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.Field;
@@ -13,6 +15,7 @@ import retrofit2.http.Query;
 import ru.bakaystas.parrotwings.model.LoggedUserInfo;
 import ru.bakaystas.parrotwings.model.RecipientSearch;
 import ru.bakaystas.parrotwings.model.ResponseHistoryTransaction;
+import ru.bakaystas.parrotwings.model.ResponseLoggedUserInfo;
 import ru.bakaystas.parrotwings.model.ResponseTransaction;
 import ru.bakaystas.parrotwings.model.Reterns;
 import ru.bakaystas.parrotwings.model.Transaction;
@@ -25,22 +28,22 @@ import ru.bakaystas.parrotwings.model.UserLogin;
 
 public interface APIService {
     @POST ("/users")
-    Call<Reterns> createUser(@Body User mUser);
+    Single<Reterns> createUser(@Body User mUser);
 
     @POST ("/sessions/create")
-    Call<Reterns> loginUser(@Body UserLogin mUserLogin);
+    Single<Reterns> loginUser(@Body UserLogin mUserLogin);
 
     @GET ("/api/protected/user-info")
-    Call<LoggedUserInfo> getLoggedUserInfo(@Header("Authorization") String token);
+    Single<ResponseLoggedUserInfo> getLoggedUserInfo(@Header("Authorization") String token);
 
     @POST ("/api/protected/transactions")
     @FormUrlEncoded
-    Call<ResponseTransaction> transfer(@Header("Authorization") String token, @Field("name") String mName, @Field("amount") Integer mAmount);
+    Single<ResponseTransaction> transfer(@Header("Authorization") String token, @Field("name") String mName, @Field("amount") Integer mAmount);
 
     @GET ("/api/protected/transactions")
-    Call<ResponseHistoryTransaction> historyTransactions(@Header("Authorization") String token);
+    Single<ResponseHistoryTransaction> historyTransactions(@Header("Authorization") String token);
 
     @POST ("/api/protected/users/list")
     @FormUrlEncoded
-    Call<List<RecipientSearch>> searchRecipient(@Header("Authorization") String token, @Field("filter") String mFilter);
+    Observable<List<RecipientSearch>> searchRecipient(@Header("Authorization") String token, @Field("filter") String mFilter);
 }

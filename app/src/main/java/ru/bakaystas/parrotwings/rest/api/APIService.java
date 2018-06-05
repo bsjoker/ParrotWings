@@ -4,21 +4,17 @@ import java.util.List;
 
 import io.reactivex.Observable;
 import io.reactivex.Single;
-import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.Field;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.POST;
-import retrofit2.http.Query;
-import ru.bakaystas.parrotwings.model.LoggedUserInfo;
 import ru.bakaystas.parrotwings.model.RecipientSearch;
 import ru.bakaystas.parrotwings.model.ResponseHistoryTransaction;
 import ru.bakaystas.parrotwings.model.ResponseLoggedUserInfo;
 import ru.bakaystas.parrotwings.model.ResponseTransaction;
 import ru.bakaystas.parrotwings.model.Reterns;
-import ru.bakaystas.parrotwings.model.Transaction;
 import ru.bakaystas.parrotwings.model.User;
 import ru.bakaystas.parrotwings.model.UserLogin;
 
